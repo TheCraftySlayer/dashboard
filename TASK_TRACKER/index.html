@@ -902,12 +902,13 @@
             graphSharesEndpoint: 'https://graph.microsoft.com/v1.0/shares',
         };
 
-        // Default SharePoint folder URL. Empty by default so the task tracker
-        // does not depend on any single user's personal OneDrive. Each install
-        // configures its own shared folder via the settings UI (persisted to
-        // localStorage as 'folder_url'). Previously hardcoded to a personal
-        // OneDrive path which would disappear if that user left.
-        var SHARED_FOLDER_URL = '';
+        // Default SharePoint folder URL on the AssessorOfficeApplications
+        // private group site. Each user signs in with their own delegated
+        // identity, so access is governed by membership in that group rather
+        // than by any single user's personal OneDrive. Users can still
+        // override this via the settings UI (persisted to localStorage as
+        // 'folder_url').
+        var SHARED_FOLDER_URL = 'https://bernco.sharepoint.com/:f:/s/AssessorOfficeApplications/IgBzRcVndYu5S7yhpQ12Ba8LAZ2rFaXXpTVWnHPxR9NctBI?e=UcIktf';
         var EXCEL_FILENAME = 'customer_service_task_tracker.xlsx';
 
         function getShareToken(sharingUrl) {
