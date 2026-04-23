@@ -902,7 +902,13 @@
             graphSharesEndpoint: 'https://graph.microsoft.com/v1.0/shares',
         };
 
-        var SHARED_FOLDER_URL = 'https://bernco-my.sharepoint.com/:f:/g/personal/anewe_bernco_gov/IgDCbeKZv8qNQZ-TaQVesflZARo4_9a6tdyqmriDNCbTAsU';
+        // Default SharePoint folder URL on the AssessorOfficeApplications
+        // private group site. Each user signs in with their own delegated
+        // identity, so access is governed by membership in that group rather
+        // than by any single user's personal OneDrive. Users can still
+        // override this via the settings UI (persisted to localStorage as
+        // 'folder_url').
+        var SHARED_FOLDER_URL = 'https://bernco.sharepoint.com/sites/AssessorOfficeApplications/Shared%20Documents/Data%20Files%20for%20Dashboard';
         var EXCEL_FILENAME = 'customer_service_task_tracker.xlsx';
 
         function getShareToken(sharingUrl) {
