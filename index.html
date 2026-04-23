@@ -966,11 +966,19 @@
 
     const SP_GRAPH_SHARES = 'https://graph.microsoft.com/v1.0/shares';
 
+    // AssessorOfficeApplications site GUID. Use this ID when granting the
+    // app Sites.Selected access to a single site, e.g.
+    //   PATCH https://graph.microsoft.com/v1.0/sites/{SP_SITE_ID}/permissions
+    //   { "roles": ["write"], "grantedToIdentities": [{ "application":
+    //     { "id": "c6cc26c0-2ea7-4048-a659-68d823be477f",
+    //       "displayName": "Customer Service Dashboard" } }] }
+    const SP_SITE_ID = 'f2d74b68-9b09-4d12-8e13-3fa402fc2f95';
+
     // Default SharePoint Excel file for dashboard data
-    const DEFAULT_SHAREPOINT_FILE_URL = 'https://bernco.sharepoint.com/:x:/r/sites/AssessorOfficeApplications/Shared%20Documents/Workbook.xlsx?d=w3327828f0a3f4475adba99ac02f13b67&csf=1&web=1&e=OEkO16';
+    const DEFAULT_SHAREPOINT_FILE_URL = 'https://bernco.sharepoint.com/:x:/s/AssessorOfficeApplications/IQAch6ug05BERL8wZhMUM9LWAcb5Rs1wxabKqdEbKUxcs04?e=XxrDW8';
 
     // Archive file for older data (auto-archive moves data here when active file gets too large)
-    const DEFAULT_ARCHIVE_FILE_URL = 'https://bernco.sharepoint.com/:x:/r/sites/AssessorOfficeApplications/Shared%20Documents/Archive/Workbook.xlsx?d=w8b0c56586d734f1dba61d38a6e25c649&csf=1&web=1&e=c2u44P';
+    const DEFAULT_ARCHIVE_FILE_URL = 'https://bernco.sharepoint.com/:x:/s/AssessorOfficeApplications/IQCLJoLoW2saQrcvfECCBOhSAVwf5R1HgyZwrOMFfobGLaA?e=DqGHem';
 
     // Max rows per sheet before auto-archive triggers (keeps active file under ~5MB Graph API limit)
     const SP_MAX_ACTIVE_ROWS = 75000;
