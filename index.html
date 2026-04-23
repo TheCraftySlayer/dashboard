@@ -2415,20 +2415,24 @@
             const accounts = msalObj.getAllAccounts();
             if (accounts.length > 0) {
               const account = accounts[0];
-              setSpUser(account);
-              setSpIsAuthenticated(true);
-              // Set email recipient from signed-in user if not already saved
-              if (!localStorage.getItem(STORAGE_KEYS.emailRecipient) && account.username) {
-                setEmailRecipient(account.username);
-              }
               try {
                 const tokenResponse = await msalObj.acquireTokenSilent({
                   scopes: SP_LOGIN_REQUEST.scopes,
                   account: account
                 });
+                // Only mark as authenticated once we actually have a usable token.
+                setSpUser(account);
+                setSpIsAuthenticated(true);
                 setSpAccessToken(tokenResponse.accessToken);
+                if (!localStorage.getItem(STORAGE_KEYS.emailRecipient) && account.username) {
+                  setEmailRecipient(account.username);
+                }
               } catch (err) {
-                console.warn('Silent token acquisition failed, will require interactive sign-in:', err);
+                // No cached refresh token (common on first visit after sign-in in a new
+                // browser/session). Drop the stale account so the UI cleanly prompts for
+                // interactive sign-in instead of appearing signed-in with a dead session.
+                console.info('MSAL: no cached refresh token, clearing stale account and prompting interactive sign-in');
+                try { await msalObj.clearCache(); } catch (e) { /* older MSAL versions lack clearCache */ }
               }
             }
           } catch (error) {
