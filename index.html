@@ -2644,7 +2644,7 @@
       }, [dateRange, isHydrated]);
       useEffect(() => {
         if (!isHydrated) return;
-        localStorage.setItem(STORAGE_KEYS.confirmed, JSON.stringify(confirmed));
+        try { localStorage.setItem(STORAGE_KEYS.confirmed, JSON.stringify(confirmed)); } catch (e) { console.warn('localStorage full'); }
       }, [confirmed, isHydrated]);
       useEffect(() => {
         if (!isHydrated) return;
@@ -4584,6 +4584,15 @@
                   } else if (lengthVal instanceof Date) {
                     // Time as Date object - get hours/mins/secs
                     duration = lengthVal.getHours() * 3600 + lengthVal.getMinutes() * 60 + lengthVal.getSeconds();
+                  } else if (typeof lengthVal === 'string') {
+                    // Plain-text time like "0:01:23" or "1:23" (RingCentral sometimes exports this way)
+                    const m = lengthVal.trim().match(/^(?:(\d+):)?(\d+):(\d+)(?:\.\d+)?$/);
+                    if (m) {
+                      const h = parseInt(m[1] || '0', 10);
+                      const min = parseInt(m[2], 10);
+                      const sec = parseInt(m[3], 10);
+                      duration = h * 3600 + min * 60 + sec;
+                    }
                   }
                 }
               } else {
@@ -4649,12 +4658,26 @@
             
           } else if (type === 'visitors') {
             const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-            const headerRow = rawRows[0] || [];
-            const headerStr = headerRow.map(h => String(h || '').toLowerCase()).join('|');
-            const isEnvoy = headerStr.includes('signin datetime') || headerStr.includes('flow name');
+            // Scan the first 20 rows for the real header (Envoy exports can include a preamble).
+            let headerRowIndex = 0;
+            let isEnvoy = false;
+            for (let i = 0; i < Math.min(20, rawRows.length); i++) {
+              const row = rawRows[i];
+              if (!row) continue;
+              const rowStr = row.map(c => String(c || '').toLowerCase()).join('|');
+              if (rowStr.includes('signin datetime') || rowStr.includes('flow name') || rowStr.includes('visitor name')) {
+                headerRowIndex = i;
+                isEnvoy = rowStr.includes('signin datetime') || rowStr.includes('flow name');
+                break;
+              }
+              if (rowStr.includes('date') && rowStr.includes('visitor')) {
+                headerRowIndex = i;
+                break;
+              }
+            }
             const formatName = isEnvoy ? 'Envoy' : 'Cleaned';
-            
-            const rows = XLSX.utils.sheet_to_json(sheet);
+
+            const rows = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex });
             let newVisitors = rows.map(r => {
               let date = null, hour = null;
               if (isEnvoy) {
@@ -4720,15 +4743,30 @@
 
           } else if (type === 'absences') {
             const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-            const headerRow = rawRows[0] || [];
-            const headerStr = headerRow.map(h => String(h || '').toLowerCase()).join('|');
-            const isSharePoint = headerStr.includes('start time') || headerStr.includes('all day event');
+            // Scan the first 20 rows for the real header (SharePoint calendar exports can include a preamble).
+            let headerRowIndex = 0;
+            let isSharePoint = false;
+            for (let i = 0; i < Math.min(20, rawRows.length); i++) {
+              const row = rawRows[i];
+              if (!row) continue;
+              const rowStr = row.map(c => String(c || '').toLowerCase()).join('|');
+              if ((rowStr.includes('start time') && rowStr.includes('end time')) || rowStr.includes('all day event')) {
+                headerRowIndex = i;
+                isSharePoint = true;
+                break;
+              }
+              if (rowStr.includes('start_date') || (rowStr.includes('agent') && rowStr.includes('start'))) {
+                headerRowIndex = i;
+                break;
+              }
+            }
+            const headerRow = rawRows[headerRowIndex] || [];
             const formatName = isSharePoint ? 'SharePoint (raw)' : 'Cleaned';
-            
-            console.log('Loading absence file:', file.name, 'Format:', formatName);
+
+            console.log('Loading absence file:', file.name, 'Format:', formatName, 'header row:', headerRowIndex);
             console.log('Headers detected:', headerRow.slice(0, 5));
-            
-            const rows = XLSX.utils.sheet_to_json(sheet);
+
+            const rows = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex });
             console.log('Total rows in file:', rows.length);
             
             const getCCAgent = (name) => {
