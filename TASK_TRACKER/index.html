@@ -1,0 +1,2401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Service Tracking - Bernalillo County Assessor's Office</title>
+
+    <!-- Microsoft Authentication Library -->
+    <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+
+    <!-- React -->
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+    <!-- XLSX for Excel parsing -->
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #1e40af;
+            --primary-light: #3b82f6;
+            --primary-dark: #1e3a8a;
+            --success: #059669;
+            --warning: #d97706;
+            --danger: #dc2626;
+            --purple: #7c3aed;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --radius: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--gray-100);
+            color: var(--gray-800);
+            min-height: 100vh;
+        }
+
+        /* Iframe/Embed-friendly sizing — scale content to fit SharePoint Embed web part */
+        html, body { width: 100%; height: 100%; overflow: auto; }
+        html.in-iframe { overflow: auto; }
+        html.in-iframe body {
+            transform-origin: top left;
+            min-height: 0;
+        }
+        html.in-iframe .app-container { min-height: 0; }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, var(--primary-dark) 0%, var(--primary) 100%);
+            color: white;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .logo-subtitle {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
+        .nav-section {
+            margin-bottom: 24px;
+        }
+
+        .nav-section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            opacity: 0.6;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 4px;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .nav-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .nav-item.active {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .nav-icon {
+            width: 20px;
+            text-align: center;
+        }
+
+        .nav-badge {
+            margin-left: auto;
+            background: rgba(255,255,255,0.3);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .nav-badge.urgent {
+            background: var(--danger);
+        }
+
+        .user-info {
+            margin-top: auto;
+            padding: 16px;
+            background: rgba(255,255,255,0.1);
+            border-radius: var(--radius);
+        }
+
+        .user-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .user-role {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-50);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #047857;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .btn-purple {
+            background: var(--purple);
+            color: white;
+        }
+
+        .btn-purple:hover {
+            background: #6d28d9;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        /* Form Styles */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group.full-width {
+            grid-column: span 2;
+        }
+
+        .form-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--gray-700);
+        }
+
+        .form-label .required {
+            color: var(--danger);
+        }
+
+        .form-input, .form-select, .form-textarea {
+            padding: 10px 14px;
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius);
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-input.error, .form-select.error {
+            border-color: var(--danger);
+        }
+
+        .form-error {
+            font-size: 12px;
+            color: var(--danger);
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--gray-500);
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 12px 16px;
+            background: var(--gray-50);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--gray-600);
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .data-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--gray-100);
+            font-size: 14px;
+        }
+
+        .data-table tr:hover {
+            background: var(--gray-50);
+        }
+
+        .data-table tr.clickable {
+            cursor: pointer;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-ready-for-translog {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-complete {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        /* Assignment Badge */
+        .assignment-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: var(--gray-100);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--gray-700);
+        }
+
+        .assignment-badge.self {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            width: 100%;
+            max-width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal.wide {
+            max-width: 900px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: var(--gray-100);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 16px 24px;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        /* Connection Status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--gray-100);
+            border-radius: var(--radius);
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .connection-dot.connected {
+            background: var(--success);
+        }
+
+        .connection-dot.disconnected {
+            background: var(--danger);
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--gray-200);
+            margin-bottom: 20px;
+            padding: 0 24px;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+            color: var(--gray-500);
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--gray-700);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 24px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--gray-200);
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-bottom: 20px;
+        }
+
+        .timeline-item:last-child {
+            padding-bottom: 0;
+        }
+
+        .timeline-dot {
+            position: absolute;
+            left: -20px;
+            top: 4px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+
+        .timeline-dot.created {
+            background: var(--success);
+            box-shadow: 0 0 0 2px var(--success);
+        }
+
+        .timeline-dot.assigned {
+            background: var(--purple);
+            box-shadow: 0 0 0 2px var(--purple);
+        }
+
+        .timeline-dot.status_change {
+            background: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+
+        .timeline-content {
+            background: var(--gray-50);
+            padding: 12px 16px;
+            border-radius: var(--radius);
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 4px;
+        }
+
+        .timeline-action {
+            font-weight: 500;
+            color: var(--gray-800);
+        }
+
+        .timeline-time {
+            font-size: 12px;
+            color: var(--gray-500);
+        }
+
+        .timeline-detail {
+            font-size: 13px;
+            color: var(--gray-600);
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 16px 20px;
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .alert-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+
+        .alert-success {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+        }
+
+        .alert-warning {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            color: #92400e;
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+
+        /* Loading */
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            z-index: 2000;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray-500);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state-title {
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: 8px;
+        }
+
+        /* Search */
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            padding-left: 40px;
+            width: 300px;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+        }
+
+        /* Filter Pills */
+        .filter-pills {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .filter-pill {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            background: var(--gray-100);
+            color: var(--gray-700);
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .filter-pill:hover {
+            background: var(--gray-200);
+        }
+
+        .filter-pill.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Manager Badge */
+        .manager-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: #fef3c7;
+            color: #92400e;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        /* Detail Grid */
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .detail-item label {
+            font-size: 12px;
+            color: var(--gray-500);
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .detail-item .value {
+            font-weight: 500;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-group.full-width {
+                grid-column: span 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <script>
+        // Detect if running inside an iframe (SharePoint Embed) and auto-scale
+        (function() {
+            try {
+                if (window.self !== window.top) {
+                    document.documentElement.classList.add('in-iframe');
+                    function applyZoom() {
+                        var w = window.innerWidth, h = window.innerHeight;
+                        // Task planner is designed for ~1200px wide, scale to fit iframe
+                        var scaleX = w / 1200, scaleY = h / 800;
+                        var scale = Math.min(scaleX, scaleY, 1);
+                        if (scale < 1) {
+                            document.body.style.transform = 'scale(' + scale + ')';
+                            document.body.style.width = (100 / scale) + '%';
+                            document.body.style.height = (100 / scale) + '%';
+                        }
+                    }
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', applyZoom);
+                    } else {
+                        applyZoom();
+                    }
+                    window.addEventListener('resize', applyZoom);
+                }
+            } catch(e) {
+                document.documentElement.classList.add('in-iframe');
+            }
+        })();
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        var useState = React.useState;
+        var useEffect = React.useEffect;
+        var useCallback = React.useCallback;
+        var useMemo = React.useMemo;
+
+        // ============================================
+        // MICROSOFT GRAPH API CONFIGURATION
+        // ============================================
+
+        var MSAL_CONFIG = {
+            auth: {
+                clientId: 'ee62c7ec-6935-4dd7-ae7f-317b5120f67c',
+                authority: 'https://login.microsoftonline.com/bernco.gov',
+                redirectUri: 'https://thecraftyslayer.github.io/csdashboard/task_planner/',
+            },
+            cache: {
+                cacheLocation: 'localStorage',
+                storeAuthStateInCookie: false,
+            }
+        };
+
+        var LOGIN_REQUEST = {
+            scopes: ['User.Read', 'Files.ReadWrite']
+        };
+
+        var GRAPH_CONFIG = {
+            graphMeEndpoint: 'https://graph.microsoft.com/v1.0/me',
+            graphFilesEndpoint: 'https://graph.microsoft.com/v1.0/me/drive',
+            graphSharesEndpoint: 'https://graph.microsoft.com/v1.0/shares',
+        };
+
+        var SHARED_FOLDER_URL = 'https://bernco-my.sharepoint.com/:f:/g/personal/anewe_bernco_gov/IgDCbeKZv8qNQZ-TaQVesflZARo4_9a6tdyqmriDNCbTAsU';
+        var EXCEL_FILENAME = 'customer_service_task_tracker.xlsx';
+
+        function getShareToken(sharingUrl) {
+            var base64 = btoa(sharingUrl)
+                .replace(/=/g, '')
+                .replace(/\//g, '_')
+                .replace(/\+/g, '-');
+            return 'u!' + base64;
+        }
+
+        // ============================================
+        // STAFF CONFIGURATION (Dynamic Detection)
+        // ============================================
+
+        // Pre-configured users (managers and key staff who must always be available)
+        var PRECONFIGURED_USERS = {
+            'lraab@bernco.gov': {
+                id: 'lraab',
+                name: 'Lyn Raab',
+                email: 'lraab@bernco.gov',
+                sheet: 'Lyn_Raab',
+                role: 'manager'
+            }
+        };
+
+        // Manager emails - only these users have manager privileges
+        var MANAGER_EMAILS = ['lraab@bernco.gov'];
+
+        // Known user cache - stores dynamically detected users (merged with preconfigured)
+        var knownUsersCache = (function() {
+            var cached = JSON.parse(localStorage.getItem('known_users_cache') || '{}');
+            // Merge preconfigured users (preconfigured takes precedence for role)
+            for (var email in PRECONFIGURED_USERS) {
+                if (!cached[email]) {
+                    cached[email] = PRECONFIGURED_USERS[email];
+                } else {
+                    // Keep preconfigured role but allow name updates from MS Graph
+                    cached[email].role = PRECONFIGURED_USERS[email].role;
+                }
+            }
+            localStorage.setItem('known_users_cache', JSON.stringify(cached));
+            return cached;
+        })();
+
+        // Generate Excel sheet name from display name (FirstName_LastName format)
+        function generateSheetName(displayName) {
+            if (!displayName) return null;
+            var parts = displayName.trim().split(/\s+/);
+            if (parts.length >= 2) {
+                // Use first and last name parts
+                var firstName = parts[0].replace(/[^a-zA-Z]/g, '');
+                var lastName = parts[parts.length - 1].replace(/[^a-zA-Z]/g, '');
+                return firstName + '_' + lastName;
+            } else if (parts.length === 1) {
+                return parts[0].replace(/[^a-zA-Z]/g, '');
+            }
+            return null;
+        }
+
+        // Generate user ID from email (part before @)
+        function generateUserId(email) {
+            if (!email) return null;
+            return email.toLowerCase().split('@')[0];
+        }
+
+        // Create user object from Microsoft account info
+        function createUserFromMsAccount(email, displayName) {
+            if (!email) return null;
+            var emailLower = email.toLowerCase();
+            var isManager = MANAGER_EMAILS.indexOf(emailLower) !== -1;
+
+            var user = {
+                id: generateUserId(email),
+                name: displayName || email.split('@')[0],
+                email: emailLower,
+                sheet: generateSheetName(displayName),
+                role: isManager ? 'manager' : 'tech_ii'
+            };
+
+            // Cache the user for future reference
+            knownUsersCache[emailLower] = user;
+            localStorage.setItem('known_users_cache', JSON.stringify(knownUsersCache));
+
+            return user;
+        }
+
+        // Find user by email - checks cache first
+        function findUserByEmail(email) {
+            if (!email) return null;
+            var emailLower = email.toLowerCase();
+            return knownUsersCache[emailLower] || null;
+        }
+
+        // Get user name by ID - searches cache
+        function getUserName(userId) {
+            if (!userId) return 'Unknown';
+            for (var email in knownUsersCache) {
+                if (knownUsersCache[email].id === userId) {
+                    return knownUsersCache[email].name;
+                }
+            }
+            return userId;
+        }
+
+        // Get all known users for assignment dropdown
+        function getAllKnownUsers() {
+            var users = [];
+            for (var email in knownUsersCache) {
+                users.push(knownUsersCache[email]);
+            }
+            return users;
+        }
+
+        var PURPOSE_OPTIONS = [
+            'Deed Transfer',
+            'Exemption Application',
+            'Address Change',
+            'Value Dispute',
+            'General Inquiry',
+            'Document Drop-off',
+            'Other'
+        ];
+
+        var STATUS_OPTIONS = ['Pending', 'Ready for Translog', 'Complete'];
+
+        // ============================================
+        // UTILITY FUNCTIONS
+        // ============================================
+
+        function generateRecordId() {
+            var today = new Date();
+            var dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+            var existingRecords = JSON.parse(localStorage.getItem('intake_records_v2') || '[]');
+            var todayRecords = existingRecords.filter(function(r) { return r.record_id.startsWith(dateStr); });
+            var sequence = String(todayRecords.length + 1).padStart(3, '0');
+            return dateStr + '-' + sequence;
+        }
+
+        function formatDate(date) {
+            return new Date(date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function formatDateTime(date) {
+            return new Date(date).toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        function validateUPC(upc) {
+            var cleaned = upc.replace(/\D/g, '');
+            return cleaned.length >= 6 && cleaned.length <= 15;
+        }
+
+        // ============================================
+        // MAIN APPLICATION COMPONENT
+        // ============================================
+
+        function App() {
+            // Auth State
+            var authState = useState(null);
+            var msalInstance = authState[0];
+            var setMsalInstance = authState[1];
+
+            var userState = useState(null);
+            var user = userState[0];
+            var setUser = userState[1];
+
+            var authStatusState = useState(false);
+            var isAuthenticated = authStatusState[0];
+            var setIsAuthenticated = authStatusState[1];
+
+            var tokenState = useState(null);
+            var accessToken = tokenState[0];
+            var setAccessToken = tokenState[1];
+
+            // App State
+            var recordsState = useState([]);
+            var records = recordsState[0];
+            var setRecords = recordsState[1];
+
+            var intakeModalState = useState(false);
+            var showIntakeModal = intakeModalState[0];
+            var setShowIntakeModal = intakeModalState[1];
+
+            var loadingState = useState(false);
+            var loading = loadingState[0];
+            var setLoading = loadingState[1];
+
+            var notificationState = useState(null);
+            var notification = notificationState[0];
+            var setNotification = notificationState[1];
+
+            var searchState = useState('');
+            var searchQuery = searchState[0];
+            var setSearchQuery = searchState[1];
+
+            var statusFilterState = useState('all');
+            var statusFilter = statusFilterState[0];
+            var setStatusFilter = statusFilterState[1];
+
+            var selectedRecordState = useState(null);
+            var selectedRecord = selectedRecordState[0];
+            var setSelectedRecord = selectedRecordState[1];
+
+            var settingsModalState = useState(false);
+            var showSettingsModal = settingsModalState[0];
+            var setShowSettingsModal = settingsModalState[1];
+
+            var transferModalState = useState(false);
+            var showTransferModal = transferModalState[0];
+            var setShowTransferModal = transferModalState[1];
+
+            var transferTargetState = useState('');
+            var transferTarget = transferTargetState[0];
+            var setTransferTarget = transferTargetState[1];
+
+            var transferNoteState = useState('');
+            var transferNote = transferNoteState[0];
+            var setTransferNote = transferNoteState[1];
+
+            // View Mode: 'my-entered', 'assigned-to-me', 'all'
+            var viewModeState = useState('assigned-to-me');
+            var viewMode = viewModeState[0];
+            var setViewMode = viewModeState[1];
+
+            // Detail Tab
+            var detailTabState = useState('details');
+            var detailTab = detailTabState[0];
+            var setDetailTab = detailTabState[1];
+
+            // Current User
+            var currentUserState = useState(null);
+            var currentUser = currentUserState[0];
+            var setCurrentUser = currentUserState[1];
+
+            // Excel Connection State
+            var excelConnectedState = useState(false);
+            var excelConnected = excelConnectedState[0];
+            var setExcelConnected = excelConnectedState[1];
+
+            var folderUrlState = useState(localStorage.getItem('folder_url') || SHARED_FOLDER_URL);
+            var folderUrl = folderUrlState[0];
+            var setFolderUrl = folderUrlState[1];
+
+            // Form State
+            var formDataState = useState({
+                owner_name: '',
+                upc: '',
+                date_of_visit: new Date().toISOString().slice(0, 10),
+                purpose_of_visit: '',
+                notes: '',
+                assigned_to: ''
+            });
+            var formData = formDataState[0];
+            var setFormData = formDataState[1];
+
+            var formErrorsState = useState({});
+            var formErrors = formErrorsState[0];
+            var setFormErrors = formErrorsState[1];
+
+            // Fetch user profile from Microsoft Graph API
+            var fetchUserProfile = function(token, account) {
+                fetch(GRAPH_CONFIG.graphMeEndpoint, {
+                    headers: { Authorization: 'Bearer ' + token }
+                }).then(function(response) {
+                    if (!response.ok) throw new Error('Failed to fetch user profile');
+                    return response.json();
+                }).then(function(profile) {
+                    // Create user from Microsoft profile data
+                    var detectedUser = createUserFromMsAccount(account.username, profile.displayName);
+                    if (detectedUser) {
+                        setCurrentUser(detectedUser);
+                    }
+                }).catch(function(error) {
+                    console.error('Error fetching user profile:', error);
+                    // Fallback: create user from account info
+                    var fallbackUser = createUserFromMsAccount(account.username, account.name);
+                    if (fallbackUser) {
+                        setCurrentUser(fallbackUser);
+                    }
+                });
+            };
+
+            // Initialize MSAL
+            useEffect(function() {
+                var initMsal = function() {
+                    try {
+                        var msalObj = new msal.PublicClientApplication(MSAL_CONFIG);
+                        msalObj.initialize().then(function() {
+                            setMsalInstance(msalObj);
+
+                            var accounts = msalObj.getAllAccounts();
+                            if (accounts.length > 0) {
+                                var account = accounts[0];
+                                setUser(account);
+                                setIsAuthenticated(true);
+
+                                // Acquire token and fetch user profile
+                                var request = {
+                                    scopes: LOGIN_REQUEST.scopes,
+                                    account: account
+                                };
+                                msalObj.acquireTokenSilent(request).then(function(response) {
+                                    setAccessToken(response.accessToken);
+                                    fetchUserProfile(response.accessToken, account);
+                                }).catch(function(error) {
+                                    console.error('Token acquisition error on init:', error);
+                                    // Fallback to cached user
+                                    var cachedUser = findUserByEmail(account.username);
+                                    if (cachedUser) {
+                                        setCurrentUser(cachedUser);
+                                    }
+                                });
+                            }
+                        });
+                    } catch (error) {
+                        console.error('MSAL initialization error:', error);
+                    }
+                };
+                initMsal();
+            }, []);
+
+            // Load records from localStorage
+            useEffect(function() {
+                var saved = localStorage.getItem('intake_records_v2');
+                if (saved) {
+                    setRecords(JSON.parse(saved));
+                } else {
+                    // Migrate from old format
+                    var oldSaved = localStorage.getItem('intake_records');
+                    if (oldSaved) {
+                        var oldRecords = JSON.parse(oldSaved);
+                        var migratedRecords = oldRecords.map(function(r) {
+                            return {
+                                record_id: r.record_id,
+                                owner_name: r.owner_name,
+                                upc: r.upc,
+                                date_of_visit: r.date_of_visit,
+                                purpose_of_visit: r.purpose_of_visit,
+                                notes: r.notes,
+                                entered_by: r.entered_by,
+                                assigned_to: r.assigned_to || r.entered_by,
+                                status: r.status === 'Scanned' ? 'Ready for Translog' : r.status,
+                                created_at: r.created_at,
+                                history: r.history || [{
+                                    action: 'created',
+                                    timestamp: r.created_at,
+                                    by: r.entered_by,
+                                    details: 'Record created'
+                                }]
+                            };
+                        });
+                        setRecords(migratedRecords);
+                        localStorage.setItem('intake_records_v2', JSON.stringify(migratedRecords));
+                    }
+                }
+            }, []);
+
+            // Acquire access token
+            var acquireToken = function(msalObj, account) {
+                var request = {
+                    scopes: LOGIN_REQUEST.scopes,
+                    account: account
+                };
+
+                msalObj.acquireTokenSilent(request).then(function(response) {
+                    setAccessToken(response.accessToken);
+                }).catch(function(error) {
+                    console.error('Token acquisition error:', error);
+                    msalObj.acquireTokenPopup(LOGIN_REQUEST).then(function(response) {
+                        setAccessToken(response.accessToken);
+                    });
+                });
+            };
+
+            // Sign In
+            var handleSignIn = function() {
+                if (!msalInstance) return;
+                setLoading(true);
+                msalInstance.loginPopup(LOGIN_REQUEST).then(function(response) {
+                    setUser(response.account);
+                    setIsAuthenticated(true);
+
+                    // Acquire token and fetch user profile
+                    var request = {
+                        scopes: LOGIN_REQUEST.scopes,
+                        account: response.account
+                    };
+                    return msalInstance.acquireTokenSilent(request).then(function(tokenResponse) {
+                        setAccessToken(tokenResponse.accessToken);
+
+                        // Fetch user profile from Microsoft Graph
+                        return fetch(GRAPH_CONFIG.graphMeEndpoint, {
+                            headers: { Authorization: 'Bearer ' + tokenResponse.accessToken }
+                        }).then(function(profileResponse) {
+                            if (!profileResponse.ok) throw new Error('Failed to fetch profile');
+                            return profileResponse.json();
+                        }).then(function(profile) {
+                            // Create user dynamically from Microsoft profile
+                            var detectedUser = createUserFromMsAccount(response.account.username, profile.displayName);
+                            if (detectedUser) {
+                                setCurrentUser(detectedUser);
+                                showNotificationMsg('Signed in as ' + detectedUser.name, 'success');
+                            }
+                            setLoading(false);
+                        });
+                    });
+                }).catch(function(error) {
+                    console.error('Login error:', error);
+                    // Fallback: try to create user from account info
+                    if (error.account) {
+                        var fallbackUser = createUserFromMsAccount(error.account.username, error.account.name);
+                        if (fallbackUser) {
+                            setCurrentUser(fallbackUser);
+                            showNotificationMsg('Signed in as ' + fallbackUser.name, 'success');
+                        }
+                    } else {
+                        showNotificationMsg('Sign in failed. Please try again.', 'error');
+                    }
+                    setLoading(false);
+                });
+            };
+
+            // Sign Out
+            var handleSignOut = function() {
+                if (!msalInstance) return;
+                msalInstance.logoutPopup().then(function() {
+                    setUser(null);
+                    setIsAuthenticated(false);
+                    setAccessToken(null);
+                    setExcelConnected(false);
+                    setCurrentUser(null);
+                }).catch(function(error) {
+                    console.error('Logout error:', error);
+                });
+            };
+
+            // Show notification
+            var showNotificationMsg = function(message, type) {
+                type = type || 'info';
+                setNotification({ message: message, type: type });
+                setTimeout(function() { setNotification(null); }, 5000);
+            };
+
+            // Save records
+            var saveRecords = function(updatedRecords) {
+                setRecords(updatedRecords);
+                localStorage.setItem('intake_records_v2', JSON.stringify(updatedRecords));
+            };
+
+            // Connect to Excel
+            var connectToExcel = function(url) {
+                if (!accessToken) {
+                    showNotificationMsg('Please sign in first', 'warning');
+                    return;
+                }
+
+                setLoading(true);
+                var shareToken = getShareToken(url);
+
+                fetch(GRAPH_CONFIG.graphSharesEndpoint + '/' + shareToken + '/driveItem', {
+                    headers: { Authorization: 'Bearer ' + accessToken }
+                }).then(function(response) {
+                    if (!response.ok) throw new Error('Folder not accessible');
+                    return response.json();
+                }).then(function(folderInfo) {
+                    return fetch(GRAPH_CONFIG.graphSharesEndpoint + '/' + shareToken + '/driveItem/children', {
+                        headers: { Authorization: 'Bearer ' + accessToken }
+                    });
+                }).then(function(response) {
+                    if (!response.ok) throw new Error('Cannot list folder contents');
+                    return response.json();
+                }).then(function(children) {
+                    var excelFile = children.value.find(function(f) { return f.name === EXCEL_FILENAME; });
+                    if (!excelFile) {
+                        throw new Error(EXCEL_FILENAME + ' not found in shared folder');
+                    }
+                    setFolderUrl(url);
+                    setExcelConnected(true);
+                    localStorage.setItem('folder_url', url);
+                    showNotificationMsg('Connected to ' + EXCEL_FILENAME, 'success');
+                    setLoading(false);
+                }).catch(function(error) {
+                    console.error('Excel connection error:', error);
+                    showNotificationMsg('Failed to connect: ' + error.message, 'error');
+                    setLoading(false);
+                });
+            };
+
+            // Write to Excel
+            var writeToExcel = function(sheetName, rowData) {
+                if (!accessToken || !folderUrl || !excelConnected) {
+                    return Promise.resolve(true);
+                }
+
+                var shareToken = getShareToken(folderUrl);
+                var encodedFilename = encodeURIComponent(EXCEL_FILENAME);
+
+                return fetch(GRAPH_CONFIG.graphSharesEndpoint + '/' + shareToken + '/driveItem:/' + encodedFilename + ':/workbook/worksheets(\'' + sheetName + '\')/usedRange', {
+                    headers: { Authorization: 'Bearer ' + accessToken }
+                }).then(function(response) {
+                    var nextRow = 2;
+                    if (response.ok) {
+                        return response.json().then(function(rangeData) {
+                            nextRow = (rangeData.rowCount || 1) + 1;
+                            return nextRow;
+                        });
+                    }
+                    return nextRow;
+                }).then(function(nextRow) {
+                    var endCol = String.fromCharCode(64 + rowData.length);
+                    var rangeAddress = 'A' + nextRow + ':' + endCol + nextRow;
+
+                    return fetch(GRAPH_CONFIG.graphSharesEndpoint + '/' + shareToken + '/driveItem:/' + encodedFilename + ':/workbook/worksheets(\'' + sheetName + '\')/range(address=\'' + rangeAddress + '\')', {
+                        method: 'PATCH',
+                        headers: {
+                            Authorization: 'Bearer ' + accessToken,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ values: [rowData] })
+                    });
+                }).then(function(response) {
+                    return response.ok;
+                }).catch(function(error) {
+                    console.error('Write Excel error:', error);
+                    return false;
+                });
+            };
+
+            // Update Excel row
+            var updateExcelRow = function(sheetName, recordId, columnIndex, newValue) {
+                if (!accessToken || !folderUrl || !excelConnected) {
+                    return Promise.resolve(true);
+                }
+
+                var shareToken = getShareToken(folderUrl);
+                var encodedFilename = encodeURIComponent(EXCEL_FILENAME);
+
+                return fetch(GRAPH_CONFIG.graphSharesEndpoint + '/' + shareToken + '/driveItem:/' + encodedFilename + ':/workbook/worksheets(\'' + sheetName + '\')/usedRange', {
+                    headers: { Authorization: 'Bearer ' + accessToken }
+                }).then(function(response) {
+                    if (!response.ok) return null;
+                    return response.json();
+                }).then(function(rangeData) {
+                    if (!rangeData) return false;
+
+                    var values = rangeData.values || [];
+                    var targetRow = -1;
+                    for (var i = 0; i < values.length; i++) {
+                        if (values[i][0] === recordId) {
+                            targetRow = i + 1;
+                            break;
+                        }
+                    }
+
+                    if (targetRow === -1) return false;
+
+                    var colLetter = String.fromCharCode(65 + columnIndex);
+                    var cellAddress = colLetter + targetRow;
+
+                    return fetch(GRAPH_CONFIG.graphSharesEndpoint + '/' + shareToken + '/driveItem:/' + encodedFilename + ':/workbook/worksheets(\'' + sheetName + '\')/range(address=\'' + cellAddress + '\')', {
+                        method: 'PATCH',
+                        headers: {
+                            Authorization: 'Bearer ' + accessToken,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ values: [[newValue]] })
+                    }).then(function(resp) { return resp.ok; });
+                }).catch(function(error) {
+                    console.error('Update Excel row error:', error);
+                    return false;
+                });
+            };
+
+            // Form Validation
+            var validateForm = function() {
+                var errors = {};
+
+                if (!formData.owner_name.trim()) {
+                    errors.owner_name = 'Owner name is required';
+                }
+
+                if (!formData.upc.trim()) {
+                    errors.upc = 'UPC is required';
+                } else if (!validateUPC(formData.upc)) {
+                    errors.upc = 'Invalid UPC format';
+                }
+
+                if (!formData.purpose_of_visit) {
+                    errors.purpose_of_visit = 'Purpose is required';
+                }
+
+                var isDuplicate = records.some(function(r) {
+                    return r.upc === formData.upc &&
+                        r.date_of_visit === formData.date_of_visit &&
+                        r.status !== 'Complete';
+                });
+
+                if (isDuplicate) {
+                    errors.upc = 'A record with this UPC already exists for today';
+                }
+
+                setFormErrors(errors);
+                return Object.keys(errors).length === 0;
+            };
+
+            // Submit Intake Form
+            var handleSubmitIntake = function(e) {
+                e.preventDefault();
+
+                if (!validateForm()) {
+                    showNotificationMsg('Please fix the form errors', 'error');
+                    return;
+                }
+
+                var timestamp = new Date().toISOString();
+                var assignTo = formData.assigned_to || currentUser.id;
+                var newRecord = {
+                    record_id: generateRecordId(),
+                    owner_name: formData.owner_name,
+                    upc: formData.upc,
+                    date_of_visit: formData.date_of_visit,
+                    purpose_of_visit: formData.purpose_of_visit,
+                    notes: formData.notes,
+                    entered_by: currentUser.id,
+                    assigned_to: assignTo,
+                    status: 'Pending',
+                    created_at: timestamp,
+                    history: [{
+                        action: 'created',
+                        timestamp: timestamp,
+                        by: currentUser.id,
+                        details: 'Record created and assigned to ' + getUserName(assignTo)
+                    }]
+                };
+
+                var updatedRecords = [newRecord].concat(records);
+                saveRecords(updatedRecords);
+
+                // Write to Excel if connected
+                if (excelConnected && currentUser) {
+                    writeToExcel('Master Workflow', [
+                        newRecord.record_id,
+                        newRecord.owner_name,
+                        newRecord.upc,
+                        newRecord.date_of_visit,
+                        newRecord.purpose_of_visit,
+                        currentUser.name,
+                        newRecord.notes,
+                        newRecord.status,
+                        '',
+                        getUserName(newRecord.assigned_to)
+                    ]).then(function(success) {
+                        // Write to user's personal sheet if sheet name is available
+                        if (currentUser.sheet) {
+                            writeToExcel(currentUser.sheet, [
+                                newRecord.record_id,
+                                newRecord.owner_name,
+                                newRecord.upc,
+                                newRecord.date_of_visit,
+                                newRecord.purpose_of_visit,
+                                '',
+                                newRecord.notes
+                            ]);
+                        }
+                    });
+                }
+
+                showNotificationMsg('Record ' + newRecord.record_id + ' created successfully!', 'success');
+                setShowIntakeModal(false);
+                resetForm();
+            };
+
+            // Reset Form
+            var resetForm = function() {
+                setFormData({
+                    owner_name: '',
+                    upc: '',
+                    date_of_visit: new Date().toISOString().slice(0, 10),
+                    purpose_of_visit: '',
+                    notes: '',
+                    assigned_to: currentUser ? currentUser.id : ''
+                });
+                setFormErrors({});
+            };
+
+            // Update Record Status
+            var updateRecordStatus = function(recordId, newStatus) {
+                var timestamp = new Date().toISOString();
+                var record = records.find(function(r) { return r.record_id === recordId; });
+
+                var updatedRecords = records.map(function(r) {
+                    if (r.record_id === recordId) {
+                        var newHistory = (r.history || []).concat([{
+                            action: 'status_change',
+                            timestamp: timestamp,
+                            by: currentUser.id,
+                            details: 'Status changed to ' + newStatus
+                        }]);
+                        return {
+                            record_id: r.record_id,
+                            owner_name: r.owner_name,
+                            upc: r.upc,
+                            date_of_visit: r.date_of_visit,
+                            purpose_of_visit: r.purpose_of_visit,
+                            notes: r.notes,
+                            entered_by: r.entered_by,
+                            assigned_to: r.assigned_to,
+                            status: newStatus,
+                            created_at: r.created_at,
+                            history: newHistory
+                        };
+                    }
+                    return r;
+                });
+
+                saveRecords(updatedRecords);
+
+                // Sync to Excel
+                if (excelConnected && record && currentUser) {
+                    updateExcelRow('Master Workflow', recordId, 7, newStatus);
+                    // Update on the current user's sheet (person making the change)
+                    if (currentUser.sheet) {
+                        updateExcelRow(currentUser.sheet, recordId, 5, newStatus);
+                    }
+                }
+
+                showNotificationMsg('Record ' + recordId + ' updated to ' + newStatus, 'success');
+
+                // Update selected record
+                if (selectedRecord && selectedRecord.record_id === recordId) {
+                    var updated = updatedRecords.find(function(r) { return r.record_id === recordId; });
+                    setSelectedRecord(updated);
+                }
+            };
+
+            // Handle Assignment/Transfer
+            var handleTransfer = function() {
+                if (!transferTarget) {
+                    showNotificationMsg('Please select an employee to assign to', 'error');
+                    return;
+                }
+
+                var timestamp = new Date().toISOString();
+                var updatedRecords = records.map(function(r) {
+                    if (r.record_id === selectedRecord.record_id) {
+                        var detail = 'Assigned from ' + getUserName(r.assigned_to) + ' to ' + getUserName(transferTarget);
+                        if (transferNote) {
+                            detail += '. Note: ' + transferNote;
+                        }
+                        var newHistory = (r.history || []).concat([{
+                            action: 'assigned',
+                            timestamp: timestamp,
+                            by: currentUser.id,
+                            details: detail
+                        }]);
+                        return {
+                            record_id: r.record_id,
+                            owner_name: r.owner_name,
+                            upc: r.upc,
+                            date_of_visit: r.date_of_visit,
+                            purpose_of_visit: r.purpose_of_visit,
+                            notes: r.notes,
+                            entered_by: r.entered_by,
+                            assigned_to: transferTarget,
+                            status: r.status,
+                            created_at: r.created_at,
+                            history: newHistory
+                        };
+                    }
+                    return r;
+                });
+
+                saveRecords(updatedRecords);
+
+                var updated = updatedRecords.find(function(r) { return r.record_id === selectedRecord.record_id; });
+                setSelectedRecord(updated);
+
+                showNotificationMsg('Record assigned to ' + getUserName(transferTarget), 'success');
+                setShowTransferModal(false);
+                setTransferTarget('');
+                setTransferNote('');
+            };
+
+            // Delete Record
+            var handleDeleteRecord = function(recordId) {
+                if (!confirm('Are you sure you want to delete record ' + recordId + '? This cannot be undone.')) {
+                    return;
+                }
+
+                var updatedRecords = records.filter(function(r) { return r.record_id !== recordId; });
+                saveRecords(updatedRecords);
+                showNotificationMsg('Record ' + recordId + ' deleted', 'success');
+                setSelectedRecord(null);
+            };
+
+            // Check if current user is manager
+            var isManager = currentUser && currentUser.role === 'manager';
+            var isUserDetected = currentUser !== null;
+
+            // Filtered Records
+            var filteredRecords = useMemo(function() {
+                if (!currentUser) return [];
+
+                return records.filter(function(r) {
+                    var matchesView = true;
+                    if (!isManager) {
+                        if (viewMode === 'my-entered') {
+                            matchesView = r.entered_by === currentUser.id;
+                        } else if (viewMode === 'assigned-to-me') {
+                            matchesView = r.assigned_to === currentUser.id;
+                        }
+                    }
+
+                    var matchesSearch = !searchQuery ||
+                        r.owner_name.toLowerCase().indexOf(searchQuery.toLowerCase()) !== -1 ||
+                        r.upc.indexOf(searchQuery) !== -1 ||
+                        r.record_id.indexOf(searchQuery) !== -1;
+
+                    var matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+
+                    return matchesView && matchesSearch && matchesStatus;
+                });
+            }, [records, searchQuery, statusFilter, currentUser, isManager, viewMode]);
+
+            // Stats
+            var stats = useMemo(function() {
+                if (!currentUser) {
+                    return { total: 0, today: 0, assignedToMe: 0, pending: 0, readyForTranslog: 0, complete: 0 };
+                }
+
+                var today = new Date().toISOString().slice(0, 10);
+                var relevantRecords = isManager ? records : records.filter(function(r) {
+                    return r.entered_by === currentUser.id || r.assigned_to === currentUser.id;
+                });
+
+                var assignedToMe = records.filter(function(r) {
+                    return r.assigned_to === currentUser.id && r.status !== 'Complete';
+                });
+                var todayRecords = relevantRecords.filter(function(r) { return r.date_of_visit === today; });
+
+                return {
+                    total: relevantRecords.length,
+                    today: todayRecords.length,
+                    assignedToMe: assignedToMe.length,
+                    pending: relevantRecords.filter(function(r) { return r.status === 'Pending'; }).length,
+                    readyForTranslog: relevantRecords.filter(function(r) { return r.status === 'Ready for Translog'; }).length,
+                    complete: relevantRecords.filter(function(r) { return r.status === 'Complete'; }).length,
+                };
+            }, [records, currentUser, isManager]);
+
+            // ============================================
+            // RENDER
+            // ============================================
+
+            return (
+                React.createElement('div', { className: 'app-container' },
+                    // Sidebar
+                    React.createElement('nav', { className: 'sidebar' },
+                        React.createElement('div', { className: 'logo' },
+                            React.createElement('div', { className: 'logo-icon' }, '📋'),
+                            React.createElement('div', null,
+                                React.createElement('div', { className: 'logo-text' }, 'CS Tracking'),
+                                React.createElement('div', { className: 'logo-subtitle' }, 'Bernalillo County Assessor')
+                            )
+                        ),
+
+                        isUserDetected && React.createElement('div', { className: 'nav-section' },
+                            React.createElement('div', { className: 'nav-section-title' }, 'Views'),
+                            !isManager && React.createElement(React.Fragment, null,
+                                React.createElement('div', {
+                                    className: 'nav-item ' + (viewMode === 'assigned-to-me' ? 'active' : ''),
+                                    onClick: function() { setViewMode('assigned-to-me'); }
+                                },
+                                    React.createElement('span', { className: 'nav-icon' }, '📥'),
+                                    React.createElement('span', null, 'Assigned to Me'),
+                                    stats.assignedToMe > 0 && React.createElement('span', {
+                                        className: 'nav-badge ' + (stats.assignedToMe > 5 ? 'urgent' : '')
+                                    }, stats.assignedToMe)
+                                ),
+                                React.createElement('div', {
+                                    className: 'nav-item ' + (viewMode === 'my-entered' ? 'active' : ''),
+                                    onClick: function() { setViewMode('my-entered'); }
+                                },
+                                    React.createElement('span', { className: 'nav-icon' }, '✏️'),
+                                    React.createElement('span', null, 'My Entries')
+                                )
+                            ),
+                            React.createElement('div', {
+                                className: 'nav-item ' + (viewMode === 'all' || isManager ? 'active' : ''),
+                                onClick: function() { setViewMode('all'); }
+                            },
+                                React.createElement('span', { className: 'nav-icon' }, '📊'),
+                                React.createElement('span', null, 'All Records')
+                            )
+                        ),
+
+                        React.createElement('div', { className: 'nav-section' },
+                            React.createElement('div', { className: 'nav-section-title' }, 'Resources'),
+                            React.createElement('a', {
+                                className: 'nav-item',
+                                href: 'https://bernco-my.sharepoint.com/:x:/g/personal/anewe_bernco_gov/IQC-CG31l_RFT75RQWoa9gIwAa8wjfzsemKUHDpKoiXYyic?e=fmdNSt',
+                                target: '_blank'
+                            },
+                                React.createElement('span', { className: 'nav-icon' }, '📊'),
+                                React.createElement('span', null, 'Excel Tracker')
+                            )
+                        ),
+
+                        React.createElement('div', { className: 'nav-section' },
+                            React.createElement('div', { className: 'nav-section-title' }, 'Settings'),
+                            React.createElement('div', {
+                                className: 'nav-item',
+                                onClick: function() { setShowSettingsModal(true); }
+                            },
+                                React.createElement('span', { className: 'nav-icon' }, '⚙️'),
+                                React.createElement('span', null, 'Settings')
+                            )
+                        ),
+
+                        React.createElement('div', { className: 'user-info' },
+                            isAuthenticated ? React.createElement(React.Fragment, null,
+                                React.createElement('div', { className: 'user-name' },
+                                    (user && user.name) || (user && user.username),
+                                    isManager && React.createElement('span', { className: 'manager-badge' }, 'Manager')
+                                ),
+                                React.createElement('div', { className: 'user-role' },
+                                    currentUser ? currentUser.name : React.createElement('span', { style: { color: '#f59e0b' } }, 'Account not in staff list')
+                                ),
+                                React.createElement('button', {
+                                    className: 'btn btn-secondary',
+                                    style: { marginTop: '12px', width: '100%' },
+                                    onClick: handleSignOut
+                                }, 'Sign Out')
+                            ) : React.createElement(React.Fragment, null,
+                                React.createElement('div', { className: 'user-name' }, 'Not Signed In'),
+                                React.createElement('div', { className: 'user-role' }, 'Sign in with your @bernco.gov account'),
+                                React.createElement('button', {
+                                    className: 'btn btn-primary',
+                                    style: { marginTop: '12px', width: '100%' },
+                                    onClick: handleSignIn
+                                }, 'Sign In with Microsoft')
+                            )
+                        )
+                    ),
+
+                    // Main Content
+                    React.createElement('main', { className: 'main-content' },
+                        // Header
+                        React.createElement('div', { className: 'header' },
+                            React.createElement('h1', null,
+                                !isUserDetected ? 'Please Sign In' :
+                                isManager ? 'All Records (Manager View)' :
+                                viewMode === 'assigned-to-me' ? 'Assigned to Me' :
+                                viewMode === 'my-entered' ? 'My Entries' : 'All Records'
+                            ),
+                            React.createElement('div', { className: 'header-actions' },
+                                React.createElement('div', { className: 'connection-status' },
+                                    React.createElement('span', { className: 'connection-dot ' + (excelConnected ? 'connected' : 'disconnected') }),
+                                    React.createElement('span', null, excelConnected ? EXCEL_FILENAME : 'Excel Not Connected')
+                                ),
+                                isUserDetected && !isManager && React.createElement('button', {
+                                    className: 'btn btn-primary',
+                                    onClick: function() { setShowIntakeModal(true); }
+                                }, '+ New Intake')
+                            )
+                        ),
+
+                        // Sign In Notice
+                        !isUserDetected && React.createElement('div', { className: 'alert alert-warning' },
+                            React.createElement('strong', null, 'Sign in required:'),
+                            ' Please sign in with your @bernco.gov Microsoft account to access your queue.'
+                        ),
+
+                        // Manager Notice
+                        isManager && React.createElement('div', { className: 'alert alert-info' },
+                            React.createElement('strong', null, 'Manager View:'),
+                            ' You are viewing all records from all staff.'
+                        ),
+
+                        // Notification
+                        notification && React.createElement('div', { className: 'alert alert-' + notification.type },
+                            notification.message
+                        ),
+
+                        // Stats Cards
+                        React.createElement('div', { className: 'stats-grid' },
+                            React.createElement('div', { className: 'stat-card' },
+                                React.createElement('div', { className: 'stat-label' }, "Today's Intakes"),
+                                React.createElement('div', { className: 'stat-value' }, stats.today)
+                            ),
+                            !isManager && React.createElement('div', { className: 'stat-card' },
+                                React.createElement('div', { className: 'stat-label' }, 'Assigned to Me'),
+                                React.createElement('div', { className: 'stat-value', style: { color: 'var(--purple)' } }, stats.assignedToMe)
+                            ),
+                            React.createElement('div', { className: 'stat-card' },
+                                React.createElement('div', { className: 'stat-label' }, 'Pending'),
+                                React.createElement('div', { className: 'stat-value', style: { color: 'var(--warning)' } }, stats.pending)
+                            ),
+                            React.createElement('div', { className: 'stat-card' },
+                                React.createElement('div', { className: 'stat-label' }, 'Ready for Translog'),
+                                React.createElement('div', { className: 'stat-value', style: { color: 'var(--primary-light)' } }, stats.readyForTranslog)
+                            ),
+                            React.createElement('div', { className: 'stat-card' },
+                                React.createElement('div', { className: 'stat-label' }, 'Complete'),
+                                React.createElement('div', { className: 'stat-value', style: { color: 'var(--success)' } }, stats.complete)
+                            )
+                        ),
+
+                        // Main Content Card
+                        React.createElement('div', { className: 'card' },
+                            React.createElement('div', { className: 'card-header' },
+                                React.createElement('div', { className: 'search-box' },
+                                    React.createElement('span', { className: 'search-icon' }, '🔍'),
+                                    React.createElement('input', {
+                                        type: 'text',
+                                        className: 'form-input',
+                                        placeholder: 'Search by name, UPC, or record ID...',
+                                        value: searchQuery,
+                                        onChange: function(e) { setSearchQuery(e.target.value); }
+                                    })
+                                ),
+                                React.createElement('div', { className: 'filter-pills' },
+                                    React.createElement('span', {
+                                        className: 'filter-pill ' + (statusFilter === 'all' ? 'active' : ''),
+                                        onClick: function() { setStatusFilter('all'); }
+                                    }, 'All'),
+                                    React.createElement('span', {
+                                        className: 'filter-pill ' + (statusFilter === 'Pending' ? 'active' : ''),
+                                        onClick: function() { setStatusFilter('Pending'); }
+                                    }, 'Pending'),
+                                    React.createElement('span', {
+                                        className: 'filter-pill ' + (statusFilter === 'Ready for Translog' ? 'active' : ''),
+                                        onClick: function() { setStatusFilter('Ready for Translog'); }
+                                    }, 'Ready for Translog'),
+                                    React.createElement('span', {
+                                        className: 'filter-pill ' + (statusFilter === 'Complete' ? 'active' : ''),
+                                        onClick: function() { setStatusFilter('Complete'); }
+                                    }, 'Complete')
+                                )
+                            ),
+
+                            React.createElement('div', { className: 'table-container' },
+                                filteredRecords.length === 0 ?
+                                    React.createElement('div', { className: 'empty-state' },
+                                        React.createElement('div', { className: 'empty-state-icon' }, isUserDetected ? '📭' : '🔐'),
+                                        React.createElement('div', { className: 'empty-state-title' },
+                                            !isUserDetected ? 'Sign in to view your queue' : 'No records found'
+                                        ),
+                                        React.createElement('p', null,
+                                            !isUserDetected ? 'Use your @bernco.gov Microsoft account' :
+                                            isManager ? 'No records match your filters' : 'Create a new intake to get started'
+                                        )
+                                    ) :
+                                    React.createElement('table', { className: 'data-table' },
+                                        React.createElement('thead', null,
+                                            React.createElement('tr', null,
+                                                React.createElement('th', null, 'Record ID'),
+                                                React.createElement('th', null, 'Owner Name'),
+                                                React.createElement('th', null, 'UPC'),
+                                                React.createElement('th', null, 'Date'),
+                                                React.createElement('th', null, 'Purpose'),
+                                                React.createElement('th', null, 'Assigned To'),
+                                                (isManager || viewMode === 'all') && React.createElement('th', null, 'Entered By'),
+                                                React.createElement('th', null, 'Status')
+                                            )
+                                        ),
+                                        React.createElement('tbody', null,
+                                            filteredRecords.map(function(record) {
+                                                return React.createElement('tr', {
+                                                    key: record.record_id,
+                                                    className: 'clickable',
+                                                    onClick: function() {
+                                                        setSelectedRecord(record);
+                                                        setDetailTab('details');
+                                                    }
+                                                },
+                                                    React.createElement('td', { style: { fontWeight: '500', color: 'var(--primary)' } }, record.record_id),
+                                                    React.createElement('td', null, record.owner_name),
+                                                    React.createElement('td', { style: { fontFamily: 'monospace' } }, record.upc),
+                                                    React.createElement('td', null, formatDate(record.date_of_visit)),
+                                                    React.createElement('td', null, record.purpose_of_visit),
+                                                    React.createElement('td', null,
+                                                        React.createElement('span', {
+                                                            className: 'assignment-badge ' + (record.assigned_to === currentUser.id ? 'self' : '')
+                                                        }, record.assigned_to === currentUser.id ? '→ Me' : getUserName(record.assigned_to))
+                                                    ),
+                                                    (isManager || viewMode === 'all') && React.createElement('td', null, getUserName(record.entered_by)),
+                                                    React.createElement('td', null,
+                                                        React.createElement('span', {
+                                                            className: 'status-badge status-' + record.status.toLowerCase().replace(/ /g, '-')
+                                                        }, record.status)
+                                                    )
+                                                );
+                                            })
+                                        )
+                                    )
+                            )
+                        )
+                    ),
+
+                    // Intake Modal
+                    showIntakeModal && React.createElement('div', {
+                        className: 'modal-overlay',
+                        onClick: function() { setShowIntakeModal(false); }
+                    },
+                        React.createElement('div', {
+                            className: 'modal',
+                            onClick: function(e) { e.stopPropagation(); }
+                        },
+                            React.createElement('form', { onSubmit: handleSubmitIntake },
+                                React.createElement('div', { className: 'modal-header' },
+                                    React.createElement('h3', { className: 'modal-title' }, 'New Customer Intake'),
+                                    React.createElement('button', {
+                                        type: 'button',
+                                        className: 'modal-close',
+                                        onClick: function() { setShowIntakeModal(false); }
+                                    }, '×')
+                                ),
+                                React.createElement('div', { className: 'modal-body' },
+                                    React.createElement('div', { className: 'form-grid' },
+                                        React.createElement('div', { className: 'form-group' },
+                                            React.createElement('label', { className: 'form-label' },
+                                                'Owner Name ', React.createElement('span', { className: 'required' }, '*')
+                                            ),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                className: 'form-input ' + (formErrors.owner_name ? 'error' : ''),
+                                                value: formData.owner_name,
+                                                onChange: function(e) { setFormData(Object.assign({}, formData, { owner_name: e.target.value })); },
+                                                placeholder: 'Enter owner name'
+                                            }),
+                                            formErrors.owner_name && React.createElement('span', { className: 'form-error' }, formErrors.owner_name)
+                                        ),
+                                        React.createElement('div', { className: 'form-group' },
+                                            React.createElement('label', { className: 'form-label' },
+                                                'UPC ', React.createElement('span', { className: 'required' }, '*')
+                                            ),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                className: 'form-input ' + (formErrors.upc ? 'error' : ''),
+                                                value: formData.upc,
+                                                onChange: function(e) { setFormData(Object.assign({}, formData, { upc: e.target.value })); },
+                                                placeholder: 'Enter UPC number'
+                                            }),
+                                            formErrors.upc && React.createElement('span', { className: 'form-error' }, formErrors.upc)
+                                        ),
+                                        React.createElement('div', { className: 'form-group' },
+                                            React.createElement('label', { className: 'form-label' }, 'Date of Visit'),
+                                            React.createElement('input', {
+                                                type: 'date',
+                                                className: 'form-input',
+                                                value: formData.date_of_visit,
+                                                onChange: function(e) { setFormData(Object.assign({}, formData, { date_of_visit: e.target.value })); }
+                                            })
+                                        ),
+                                        React.createElement('div', { className: 'form-group' },
+                                            React.createElement('label', { className: 'form-label' },
+                                                'Purpose of Visit ', React.createElement('span', { className: 'required' }, '*')
+                                            ),
+                                            React.createElement('select', {
+                                                className: 'form-select ' + (formErrors.purpose_of_visit ? 'error' : ''),
+                                                value: formData.purpose_of_visit,
+                                                onChange: function(e) { setFormData(Object.assign({}, formData, { purpose_of_visit: e.target.value })); }
+                                            },
+                                                React.createElement('option', { value: '' }, 'Select purpose...'),
+                                                PURPOSE_OPTIONS.map(function(opt) {
+                                                    return React.createElement('option', { key: opt, value: opt }, opt);
+                                                })
+                                            ),
+                                            formErrors.purpose_of_visit && React.createElement('span', { className: 'form-error' }, formErrors.purpose_of_visit)
+                                        ),
+                                        React.createElement('div', { className: 'form-group full-width' },
+                                            React.createElement('label', { className: 'form-label' }, 'Notes'),
+                                            React.createElement('textarea', {
+                                                className: 'form-textarea',
+                                                value: formData.notes,
+                                                onChange: function(e) { setFormData(Object.assign({}, formData, { notes: e.target.value })); },
+                                                placeholder: 'Optional notes about this intake...'
+                                            })
+                                        )
+                                    )
+                                ),
+                                React.createElement('div', { className: 'modal-footer' },
+                                    React.createElement('button', {
+                                        type: 'button',
+                                        className: 'btn btn-secondary',
+                                        onClick: function() { setShowIntakeModal(false); }
+                                    }, 'Cancel'),
+                                    React.createElement('button', { type: 'submit', className: 'btn btn-primary' }, 'Create Intake')
+                                )
+                            )
+                        )
+                    ),
+
+                    // Settings Modal
+                    showSettingsModal && React.createElement('div', {
+                        className: 'modal-overlay',
+                        onClick: function() { setShowSettingsModal(false); }
+                    },
+                        React.createElement('div', {
+                            className: 'modal',
+                            onClick: function(e) { e.stopPropagation(); }
+                        },
+                            React.createElement('div', { className: 'modal-header' },
+                                React.createElement('h3', { className: 'modal-title' }, 'Settings'),
+                                React.createElement('button', {
+                                    className: 'modal-close',
+                                    onClick: function() { setShowSettingsModal(false); }
+                                }, '×')
+                            ),
+                            React.createElement('div', { className: 'modal-body' },
+                                React.createElement('div', { className: 'form-group' },
+                                    React.createElement('label', { className: 'form-label' }, 'Detected User'),
+                                    currentUser ?
+                                        React.createElement('div', {
+                                            style: { padding: '10px 14px', background: 'var(--gray-50)', borderRadius: 'var(--radius)', border: '1px solid var(--gray-200)' }
+                                        },
+                                            React.createElement('strong', null, currentUser.name),
+                                            React.createElement('span', { style: { marginLeft: '8px', color: 'var(--gray-500)' } },
+                                                '(' + (currentUser.role === 'manager' ? 'Manager - View All' : 'Tech II') + ')'
+                                            )
+                                        ) :
+                                        React.createElement('div', {
+                                            style: { padding: '10px 14px', background: '#fef3c7', borderRadius: 'var(--radius)', border: '1px solid #fcd34d', color: '#92400e' }
+                                        }, 'Not signed in - please sign in with your @bernco.gov account'),
+                                    React.createElement('small', { style: { color: 'var(--gray-500)', marginTop: '4px', display: 'block' } },
+                                        'User is automatically detected from your Microsoft account email.'
+                                    )
+                                ),
+                                React.createElement('hr', { style: { margin: '24px 0', border: 'none', borderTop: '1px solid var(--gray-200)' } }),
+                                React.createElement('div', { className: 'form-group' },
+                                    React.createElement('label', { className: 'form-label' }, 'SharePoint Excel Integration'),
+                                    React.createElement('input', {
+                                        type: 'text',
+                                        className: 'form-input',
+                                        value: folderUrl,
+                                        onChange: function(e) { setFolderUrl(e.target.value); },
+                                        placeholder: 'Paste SharePoint shared folder link'
+                                    }),
+                                    React.createElement('div', { style: { marginTop: '12px' } },
+                                        React.createElement('button', {
+                                            className: 'btn btn-primary',
+                                            onClick: function() { connectToExcel(folderUrl); },
+                                            disabled: !isAuthenticated || !folderUrl
+                                        }, 'Connect to Folder'),
+                                        excelConnected && React.createElement('span', { style: { marginLeft: '12px', color: 'var(--success)' } }, '✓ Connected')
+                                    )
+                                ),
+                                React.createElement('hr', { style: { margin: '24px 0', border: 'none', borderTop: '1px solid var(--gray-200)' } }),
+                                React.createElement('div', { className: 'form-group' },
+                                    React.createElement('label', { className: 'form-label' }, 'Data Management'),
+                                    React.createElement('div', { style: { display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' } },
+                                        React.createElement('button', {
+                                            className: 'btn btn-secondary',
+                                            onClick: function() {
+                                                var data = JSON.stringify(records, null, 2);
+                                                var blob = new Blob([data], { type: 'application/json' });
+                                                var url = URL.createObjectURL(blob);
+                                                var a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = 'intake_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+                                                a.click();
+                                                showNotificationMsg('Backup downloaded', 'success');
+                                            }
+                                        }, 'Export Backup'),
+                                        React.createElement('button', {
+                                            className: 'btn btn-danger',
+                                            onClick: function() {
+                                                if (confirm('Are you sure you want to clear all local data?')) {
+                                                    localStorage.removeItem('intake_records_v2');
+                                                    setRecords([]);
+                                                    showNotificationMsg('Data cleared', 'success');
+                                                }
+                                            }
+                                        }, 'Clear Data')
+                                    )
+                                )
+                            ),
+                            React.createElement('div', { className: 'modal-footer' },
+                                React.createElement('button', {
+                                    className: 'btn btn-secondary',
+                                    onClick: function() { setShowSettingsModal(false); }
+                                }, 'Close')
+                            )
+                        )
+                    ),
+
+                    // Record Detail Modal
+                    selectedRecord && React.createElement('div', {
+                        className: 'modal-overlay',
+                        onClick: function() { setSelectedRecord(null); }
+                    },
+                        React.createElement('div', {
+                            className: 'modal wide',
+                            onClick: function(e) { e.stopPropagation(); }
+                        },
+                            React.createElement('div', { className: 'modal-header' },
+                                React.createElement('h3', { className: 'modal-title' }, 'Record ' + selectedRecord.record_id),
+                                React.createElement('button', {
+                                    className: 'modal-close',
+                                    onClick: function() { setSelectedRecord(null); }
+                                }, '×')
+                            ),
+                            React.createElement('div', { className: 'tabs' },
+                                React.createElement('div', {
+                                    className: 'tab ' + (detailTab === 'details' ? 'active' : ''),
+                                    onClick: function() { setDetailTab('details'); }
+                                }, 'Details'),
+                                React.createElement('div', {
+                                    className: 'tab ' + (detailTab === 'history' ? 'active' : ''),
+                                    onClick: function() { setDetailTab('history'); }
+                                }, 'History (' + (selectedRecord.history || []).length + ')')
+                            ),
+                            React.createElement('div', { className: 'modal-body' },
+                                detailTab === 'details' ?
+                                    React.createElement(React.Fragment, null,
+                                        React.createElement('div', { className: 'detail-grid' },
+                                            React.createElement('div', { className: 'detail-item' },
+                                                React.createElement('label', null, 'Owner Name'),
+                                                React.createElement('div', { className: 'value' }, selectedRecord.owner_name)
+                                            ),
+                                            React.createElement('div', { className: 'detail-item' },
+                                                React.createElement('label', null, 'UPC'),
+                                                React.createElement('div', { className: 'value', style: { fontFamily: 'monospace' } }, selectedRecord.upc)
+                                            ),
+                                            React.createElement('div', { className: 'detail-item' },
+                                                React.createElement('label', null, 'Date of Visit'),
+                                                React.createElement('div', { className: 'value' }, formatDate(selectedRecord.date_of_visit))
+                                            ),
+                                            React.createElement('div', { className: 'detail-item' },
+                                                React.createElement('label', null, 'Purpose'),
+                                                React.createElement('div', { className: 'value' }, selectedRecord.purpose_of_visit)
+                                            ),
+                                            React.createElement('div', { className: 'detail-item' },
+                                                React.createElement('label', null, 'Status'),
+                                                React.createElement('span', {
+                                                    className: 'status-badge status-' + selectedRecord.status.toLowerCase().replace(/ /g, '-')
+                                                }, selectedRecord.status)
+                                            ),
+                                            React.createElement('div', { className: 'detail-item' },
+                                                React.createElement('label', null, 'Entered By'),
+                                                React.createElement('div', { className: 'value' }, getUserName(selectedRecord.entered_by))
+                                            ),
+                                            React.createElement('div', { className: 'detail-item' },
+                                                React.createElement('label', null, 'Currently Assigned To'),
+                                                React.createElement('span', {
+                                                    className: 'assignment-badge ' + (selectedRecord.assigned_to === currentUser.id ? 'self' : '')
+                                                }, selectedRecord.assigned_to === currentUser.id ? '→ Me' : getUserName(selectedRecord.assigned_to))
+                                            ),
+                                            React.createElement('div', { className: 'detail-item' },
+                                                React.createElement('label', null, 'Created'),
+                                                React.createElement('div', { className: 'value' }, selectedRecord.created_at ? formatDateTime(selectedRecord.created_at) : 'N/A')
+                                            )
+                                        ),
+                                        React.createElement('div', { style: { marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--gray-200)' } },
+                                            React.createElement('label', { style: { fontSize: '12px', color: 'var(--gray-500)', marginBottom: '8px', display: 'block' } }, 'Notes'),
+                                            React.createElement('div', {
+                                                style: { padding: '16px', background: 'var(--gray-50)', borderRadius: 'var(--radius)', minHeight: '60px', whiteSpace: 'pre-wrap' }
+                                            },
+                                                selectedRecord.notes || React.createElement('span', { style: { color: 'var(--gray-400)', fontStyle: 'italic' } }, 'No notes for this record')
+                                            )
+                                        )
+                                    ) :
+                                    React.createElement('div', { className: 'timeline' },
+                                        (selectedRecord.history || []).slice().reverse().map(function(entry, idx) {
+                                            return React.createElement('div', { key: idx, className: 'timeline-item' },
+                                                React.createElement('div', { className: 'timeline-dot ' + entry.action }),
+                                                React.createElement('div', { className: 'timeline-content' },
+                                                    React.createElement('div', { className: 'timeline-header' },
+                                                        React.createElement('span', { className: 'timeline-action' },
+                                                            entry.action === 'created' ? '📝 Created' :
+                                                            entry.action === 'status_change' ? '🔄 Status Changed' :
+                                                            entry.action === 'assigned' ? '↗️ Assigned' : entry.action
+                                                        ),
+                                                        React.createElement('span', { className: 'timeline-time' }, formatDateTime(entry.timestamp))
+                                                    ),
+                                                    React.createElement('div', { className: 'timeline-detail' },
+                                                        entry.details,
+                                                        React.createElement('br'),
+                                                        React.createElement('small', { style: { color: 'var(--gray-400)' } }, 'by ' + getUserName(entry.by))
+                                                    )
+                                                )
+                                            );
+                                        })
+                                    )
+                            ),
+                            React.createElement('div', { className: 'modal-footer' },
+                                React.createElement('button', {
+                                    className: 'btn btn-danger btn-sm',
+                                    onClick: function() { handleDeleteRecord(selectedRecord.record_id); },
+                                    style: { marginRight: 'auto' }
+                                }, '🗑️ Delete'),
+                                selectedRecord.status !== 'Complete' && React.createElement(React.Fragment, null,
+                                    isManager && React.createElement('button', {
+                                        className: 'btn btn-purple btn-sm',
+                                        onClick: function() { setShowTransferModal(true); }
+                                    }, '↗️ Assign'),
+                                    selectedRecord.status === 'Pending' && React.createElement('button', {
+                                        className: 'btn btn-primary btn-sm',
+                                        onClick: function() { updateRecordStatus(selectedRecord.record_id, 'Ready for Translog'); }
+                                    }, 'Ready for Translog'),
+                                    selectedRecord.status === 'Ready for Translog' && React.createElement('button', {
+                                        className: 'btn btn-success btn-sm',
+                                        onClick: function() { updateRecordStatus(selectedRecord.record_id, 'Complete'); }
+                                    }, '✓ Mark Complete')
+                                ),
+                                React.createElement('button', {
+                                    className: 'btn btn-secondary btn-sm',
+                                    onClick: function() { setSelectedRecord(null); }
+                                }, 'Close')
+                            )
+                        )
+                    ),
+
+                    // Transfer/Assign Modal
+                    showTransferModal && selectedRecord && React.createElement('div', {
+                        className: 'modal-overlay',
+                        onClick: function() { setShowTransferModal(false); }
+                    },
+                        React.createElement('div', {
+                            className: 'modal',
+                            style: { maxWidth: '500px' },
+                            onClick: function(e) { e.stopPropagation(); }
+                        },
+                            React.createElement('div', { className: 'modal-header' },
+                                React.createElement('h3', { className: 'modal-title' }, 'Assign Record'),
+                                React.createElement('button', {
+                                    className: 'modal-close',
+                                    onClick: function() { setShowTransferModal(false); }
+                                }, '×')
+                            ),
+                            React.createElement('div', { className: 'modal-body' },
+                                React.createElement('p', { style: { marginBottom: '16px', color: 'var(--gray-600)' } },
+                                    'Assign record ',
+                                    React.createElement('strong', null, selectedRecord.record_id),
+                                    ' to a team member.'
+                                ),
+                                React.createElement('div', { className: 'form-group' },
+                                    React.createElement('label', { className: 'form-label' }, 'Assign To'),
+                                    React.createElement('select', {
+                                        className: 'form-select',
+                                        value: transferTarget,
+                                        onChange: function(e) { setTransferTarget(e.target.value); }
+                                    },
+                                        React.createElement('option', { value: '' }, 'Select employee...'),
+                                        getAllKnownUsers().filter(function(u) { return u.id !== selectedRecord.assigned_to; }).map(function(user) {
+                                            return React.createElement('option', { key: user.id, value: user.id }, user.name);
+                                        })
+                                    )
+                                ),
+                                React.createElement('div', { className: 'form-group', style: { marginTop: '16px' } },
+                                    React.createElement('label', { className: 'form-label' }, 'Note (optional)'),
+                                    React.createElement('textarea', {
+                                        className: 'form-textarea',
+                                        value: transferNote,
+                                        onChange: function(e) { setTransferNote(e.target.value); },
+                                        placeholder: 'Add a note about this assignment...',
+                                        style: { minHeight: '80px' }
+                                    })
+                                )
+                            ),
+                            React.createElement('div', { className: 'modal-footer' },
+                                React.createElement('button', {
+                                    className: 'btn btn-secondary',
+                                    onClick: function() { setShowTransferModal(false); }
+                                }, 'Cancel'),
+                                React.createElement('button', {
+                                    className: 'btn btn-purple',
+                                    onClick: handleTransfer
+                                }, 'Assign Record')
+                            )
+                        )
+                    ),
+
+                    // Loading Overlay
+                    loading && React.createElement('div', { className: 'loading-overlay' },
+                        React.createElement('div', { className: 'loading-spinner' }),
+                        React.createElement('div', null, 'Loading...')
+                    )
+                )
+            );
+        }
+
+        ReactDOM.render(React.createElement(App), document.getElementById('root'));
+    </script>
+</body>
+</html>
