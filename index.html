@@ -974,13 +974,14 @@
     //       "displayName": "Customer Service Dashboard" } }] }
     const SP_SITE_ID = 'f2d74b68-9b09-4d12-8e13-3fa402fc2f95';
 
-    // Default SharePoint Excel file for dashboard data.
-    // Backing file: Contact_Center_Active.xlsx on AssessorOfficeApplications.
-    const DEFAULT_SHAREPOINT_FILE_URL = 'https://bernco.sharepoint.com/:x:/s/AssessorOfficeApplications/IQAch6ug05BERL8wZhMUM9LWAcb5Rs1wxabKqdEbKUxcs04?e=XxrDW8';
+    // Default SharePoint Excel files for dashboard data. Path-based URLs
+    // are resolved by Graph's /shares/{token}/driveItem the same way short
+    // share-token URLs are, but are self-documenting about site, library,
+    // folder, and filename.
+    const DEFAULT_SHAREPOINT_FILE_URL = 'https://bernco.sharepoint.com/sites/AssessorOfficeApplications/Shared%20Documents/Data%20Files%20for%20Dashboard/Contact_Center_Active.xlsx';
 
-    // Archive file for older data (auto-archive moves data here when active file gets too large).
-    // Backing file: Contact_Center_Archive_Pre2025.xlsx on AssessorOfficeApplications.
-    const DEFAULT_ARCHIVE_FILE_URL = 'https://bernco.sharepoint.com/:x:/s/AssessorOfficeApplications/IQCLJoLoW2saQrcvfECCBOhSAVwf5R1HgyZwrOMFfobGLaA?e=DqGHem';
+    // Archive file (auto-archive moves old data here when active file gets too large)
+    const DEFAULT_ARCHIVE_FILE_URL = 'https://bernco.sharepoint.com/sites/AssessorOfficeApplications/Shared%20Documents/Data%20Files%20for%20Dashboard/Contact_Center_Archive_Pre2025.xlsx';
 
     // Max rows per sheet before auto-archive triggers (keeps active file under ~5MB Graph API limit)
     const SP_MAX_ACTIVE_ROWS = 75000;
