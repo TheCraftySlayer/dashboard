@@ -1074,9 +1074,58 @@
       });
     };
 
+    // Ensure a worksheet exists with the expected headers in row 1.
+    // Creates the sheet if missing; writes headers if row 1 is empty.
+    // Leaves row 1 alone if it already has content (so we never clobber
+    // user-edited headers in a pre-existing workbook).
+    const spEnsureSheet = async (accessToken, shareUrl, sheetName, headers) => {
+      const baseUrl = await getWorkbookBaseUrl(accessToken, shareUrl);
+      const sheetUrl = `${baseUrl}/worksheets('${encodeURIComponent(sheetName)}')`;
+      const existsResp = await fetch(sheetUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      if (existsResp.status === 404) {
+        console.log(`Creating missing worksheet: ${sheetName}`);
+        const createResp = await fetch(`${baseUrl}/worksheets/add`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name: sheetName })
+        });
+        if (!createResp.ok) {
+          const errText = await createResp.text().catch(() => '');
+          throw new Error(`Failed to create worksheet ${sheetName}: HTTP ${createResp.status} ${errText}`);
+        }
+        await spWriteHeaders(accessToken, shareUrl, sheetName, headers);
+        return;
+      } else if (!existsResp.ok) {
+        throw new Error(`Failed to check worksheet ${sheetName}: HTTP ${existsResp.status}`);
+      }
+
+      // Sheet exists — check whether row 1 is blank and fill it if so.
+      const endCol = colLetters(headers.length);
+      const hdrRangeUrl = `${baseUrl}/worksheets('${encodeURIComponent(sheetName)}')/range(address='A1:${endCol}1')`;
+      const hdrResp = await fetch(hdrRangeUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (hdrResp.ok) {
+        const hdrData = await hdrResp.json();
+        const firstRow = (hdrData.values && hdrData.values[0]) || [];
+        const isBlank = firstRow.every(v => v === null || v === undefined || String(v).trim() === '');
+        if (isBlank) {
+          console.log(`Writing headers to empty row 1 of ${sheetName}`);
+          await spWriteHeaders(accessToken, shareUrl, sheetName, headers);
+        }
+      }
+    };
+
     // Append rows to a worksheet (adds after the last used row)
     const spAppendRows = async (accessToken, shareUrl, sheetName, headers, rows) => {
       if (!rows || rows.length === 0) return true;
+      await spEnsureSheet(accessToken, shareUrl, sheetName, headers);
       const baseUrl = await getWorkbookBaseUrl(accessToken, shareUrl);
 
       // Get current used range to find the next empty row
