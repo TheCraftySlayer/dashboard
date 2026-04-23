@@ -884,7 +884,7 @@
             auth: {
                 clientId: 'ee62c7ec-6935-4dd7-ae7f-317b5120f67c',
                 authority: 'https://login.microsoftonline.com/bernco.gov',
-                redirectUri: 'https://thecraftyslayer.github.io/csdashboard/task_planner/',
+                redirectUri: window.location.origin + window.location.pathname.replace(/\/index\.html$/i, '/'),
             },
             cache: {
                 cacheLocation: 'localStorage',
