@@ -10,6 +10,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Contact Center Ops + Forecast | BernCo Assessor</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='.9em' font-size='56'%3E📞%3C/text%3E%3C/svg%3E">
   <script crossorigin src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
@@ -1001,6 +1002,28 @@
       absences: ['agent', 'startDate', 'endDate', 'type', 'absenceKey']
     };
 
+    // SheetJS logs "Bad uncompressed size: X != 0" for every ZIP entry when an
+    // .xlsx was written with data descriptors (streaming mode — what modern
+    // Excel does). The file parses correctly; the noise just makes consoles
+    // look broken. Wrap XLSX.read to filter only that specific message.
+    const safeXlsxRead = (data, opts) => {
+      const origErr = console.error;
+      const origWarn = console.warn;
+      const filter = (fn) => (...args) => {
+        const first = args[0];
+        if (typeof first === 'string' && first.indexOf('Bad uncompressed size') !== -1) return;
+        fn.apply(console, args);
+      };
+      console.error = filter(origErr);
+      console.warn = filter(origWarn);
+      try {
+        return XLSX.read(data, opts);
+      } finally {
+        console.error = origErr;
+        console.warn = origWarn;
+      }
+    };
+
     // Convert a 1-based column index into Excel column letters (1 -> 'A', 26 -> 'Z', 27 -> 'AA').
     // String.fromCharCode(64 + n) only works for n <= 26.
     const colLetters = (n) => {
@@ -1738,7 +1761,7 @@
           const reader = new FileReader();
           reader.onload = (e) => {
             try {
-              const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+              const wb = safeXlsxRead(e.target.result, { type: 'array', cellDates: true });
               const sheet = wb.Sheets[wb.SheetNames[0]];
               const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
               const firstRowStr = rows.slice(0, 10).map(r => (r || []).join('|')).join('|');
@@ -4507,7 +4530,7 @@
         reader.onload = (e) => {
           let wb, sheet;
           try {
-            wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+            wb = safeXlsxRead(e.target.result, { type: 'array', cellDates: true });
             sheet = wb.Sheets[wb.SheetNames[0]];
           } catch (err) {
             console.error('Failed to read file:', err);
