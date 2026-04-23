@@ -902,7 +902,12 @@
             graphSharesEndpoint: 'https://graph.microsoft.com/v1.0/shares',
         };
 
-        var SHARED_FOLDER_URL = 'https://bernco-my.sharepoint.com/:f:/g/personal/anewe_bernco_gov/IgDCbeKZv8qNQZ-TaQVesflZARo4_9a6tdyqmriDNCbTAsU';
+        // Default SharePoint folder URL. Empty by default so the task tracker
+        // does not depend on any single user's personal OneDrive. Each install
+        // configures its own shared folder via the settings UI (persisted to
+        // localStorage as 'folder_url'). Previously hardcoded to a personal
+        // OneDrive path which would disappear if that user left.
+        var SHARED_FOLDER_URL = '';
         var EXCEL_FILENAME = 'customer_service_task_tracker.xlsx';
 
         function getShareToken(sharingUrl) {
